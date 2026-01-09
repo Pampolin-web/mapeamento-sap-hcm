@@ -137,7 +137,7 @@
                 </div>
 
                 <div class="chart-area" id="chart-zone">
-                    <button id="btn-generate-chart">CLIQUE PARA SALVAR<br>& ATUALIZAR GRÁFICO</button>
+                    <button id="btn-generate-chart">CLIQUE PARA <br>& GERAR GRÁFICO</button>
                     <canvas id="radarChart"></canvas>
                     <button class="btn-pdf" id="btn-pdf-download">EXPORTAR RELATÓRIO PDF</button>
                 </div>
@@ -178,7 +178,7 @@
             // Função que esconde o gráfico quando algo muda
             function resetGrafico() {
                 btnGenerate.style.display = 'flex';
-                btnGenerate.innerText = "ATUALIZAR DADOS\nPARA VER GRÁFICO";
+                btnGenerate.innerText = "GERAR GRÁFICO";
                 chartZone.classList.remove('active');
                 radarCanvas.style.display = 'none';
                 btnPDF.style.display = 'none';
@@ -299,4 +299,5 @@
         });
     </script>
 </body>
+
 </html>
