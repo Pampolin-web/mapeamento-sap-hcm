@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação SAP HCM - Professional Edition</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --sap-blue: #0070b1;
+            --sap-dark-blue: #004475;
+            --sap-grey: #6a6d70;
+            --sap-light-bg: #f3f5f6;
+            --sap-border: #d9d9d9;
+            --sap-success: #2b7d2b;
+        }
+
+        body { font-family: Arial, sans-serif; background-color: var(--sap-light-bg); display: flex; justify-content: center; padding: 20px; color: #32363a; }
+
+        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.05); max-width: 1100px; width: 100%; border-top: 5px solid var(--sap-blue); }
+
+        #setup-screen { display: block; text-align: center; }
+        #main-content { display: none; }
+
+        h1 { color: var(--sap-dark-blue); font-size: 1.8rem; margin-bottom: 10px; }
+        .subtitle { color: var(--sap-grey); margin-bottom: 30px; }
+
+        input[type="text"] { padding: 12px; width: 80%; border: 1px solid var(--sap-border); border-radius: 4px; font-size: 1rem; margin-bottom: 10px; }
+
+        .header-container { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
+
+        .layout { display: flex; gap: 40px; margin-top: 20px; text-align: left; align-items: flex-start; }
+        .controls { flex: 1; min-width: 380px; }
+        
+        /* Área do Gráfico com estado inicial pontilhado */
+        .chart-area { 
+            flex: 1.5; 
+            text-align: center; 
+            min-height: 450px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .chart-area.active { border: 2px solid transparent; background: white; justify-content: flex-start; }
+
+        .control-header { display: grid; grid-template-columns: 1.5fr 1fr 1fr; font-weight: bold; font-size: 0.85rem; color: #000; margin-bottom: 15px; text-transform: uppercase; text-align: center; }
+        .control-group { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 15px; align-items: center; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; }
+
+        .slider-wrapper { position: relative; text-align: center; }
+        .val-badge-atual { display: block; font-size: 1.1rem; font-weight: bold; color: #000; margin-top: 4px; }
+        .val-badge-desejado { display: block; font-size: 1.1rem; font-weight: bold; color: var(--sap-blue); margin-top: 4px; }
+
+        label { font-size: 1rem; font-weight: bold; color: #000; }
+        input[type="range"] { width: 100%; accent-color: var(--sap-blue); cursor: pointer; }
+
+        .legend-box { margin-top: 25px; padding: 15px; background-color: #f9f9f9; border-radius: 4px; border-left: 4px solid var(--sap-blue); }
+        .legend-box h4 { margin: 0 0 10px 0; font-size: 0.85rem; color: var(--sap-dark-blue); text-transform: uppercase; }
+        .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; color: #555; }
+
+        canvas { width: 100% !important; height: auto !important; max-height: 500px; display: none; }
+
+        button { background-color: var(--sap-blue); color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background-color: var(--sap-dark-blue); transform: scale(1.02); }
+
+        /* Botão Redondo Chamativo */
+        #btn-generate-chart {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            font-size: 1rem;
+            line-height: 1.4;
+            box-shadow: 0 10px 25px rgba(0,112,177,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .btn-pdf { background-color: var(--sap-success); width: 100%; margin-top: 20px; font-size: 1rem; display: none; }
+
+        /* Estilos de Captura do PDF */
+        .capturing { padding: 40px !important; width: 1050px !important; }
+        .capturing .btn-pdf, .capturing input[type="range"], .capturing #btn-generate-chart { display: none !important; }
+        .capturing .chart-area { border: none !important; background: white !important; }
+        .capturing canvas { display: block !important; }
+
+        @media (max-width: 900px) { .layout { flex-direction: column; } .controls, .chart-area { width: 100%; } }
+    </style>
+</head>
+<body>
+
+    <div class="card" id="capture-area">
+        <div id="setup-screen">
+            <h1>Avaliação de Competências SAP HCM</h1>
+            <p class="subtitle">Análise de GAP: Nível Atual vs. Nível Desejado</p>
+            <input type="text" id="user-name" placeholder="Digite seu nome completo">
+            <br><br>
+            <button id="btn-gerar">INICIAR MAPEAMENTO</button>
+        </div>
+
+        <div id="main-content">
+            <div class="header-container">
+                <h2 style="color: var(--sap-blue); margin: 0; font-weight: bold;">Mapeamento de Habilidades HCM</h2>
+                <span id="display-date" style="color: #000; font-size: 0.9rem; font-weight: bold;"></span>
+            </div>
+            <h3 id="display-name" style="margin: 5px 0 20px 0; border-bottom: 3px solid var(--sap-blue); padding-bottom: 10px; color: #000; font-weight: bold;"></h3>
+
+            <div class="layout">
+                <div class="controls">
+                    <div class="control-header">
+                        <span style="text-align: left;">Habilidade</span>
+                        <span>Atual</span>
+                        <span>Desejado</span>
+                    </div>
+                    <div id="inputs-container"></div>
+
+                    <div class="legend-box">
+                        <h4>Legenda de Proficiência</h4>
+                        <div class="legend-grid">
+                            <span><strong>0-2:</strong> Iniciante / Teórico</span>
+                            <span><strong>3-5:</strong> Executa com Apoio</span>
+                            <span><strong>6-8:</strong> Autônomo / Avançado</span>
+                            <span><strong>9-10:</strong> Especialista / Mentor</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-area" id="chart-zone">
+                    <button id="btn-generate-chart">CLIQUE PARA SALVAR<br>& ATUALIZAR GRÁFICO</button>
+                    <canvas id="radarChart"></canvas>
+                    <button class="btn-pdf" id="btn-pdf-download">EXPORTAR RELATÓRIO PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const skills = [
+                { name: 'OM/PA', atual: 4, desejado: 8 },
+                { name: 'Gestão de Tempos', atual: 3, desejado: 7 },
+                { name: 'Folha de Pagamento', atual: 2, desejado: 9 },
+                { name: 'eSocial / Localização', atual: 5, desejado: 9 },
+                { name: 'Regras (PCR)', atual: 1, desejado: 6 },
+                { name: 'Esquemas', atual: 1, desejado: 6 },
+                { name: 'Analytics / SAC', atual: 3, desejado: 7 }
+            ];
+
+            let radarChart = null;
+            const userNameInput = document.getElementById('user-name');
+            const btnGenerate = document.getElementById('btn-generate-chart');
+            const chartZone = document.getElementById('chart-zone');
+            const radarCanvas = document.getElementById('radarChart');
+            const btnPDF = document.getElementById('btn-pdf-download');
+
+            // Iniciar Mapeamento
+            document.getElementById('btn-gerar').onclick = function() {
+                const name = userNameInput.value.trim();
+                if (!name) { alert("Por favor, informe seu nome."); return; }
+                document.getElementById('display-name').innerText = name;
+                document.getElementById('display-date').innerText = "Data: " + new Date().toLocaleDateString('pt-BR');
+                document.getElementById('setup-screen').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                renderInputs();
+            };
+
+            // Função que esconde o gráfico quando algo muda
+            function resetGrafico() {
+                btnGenerate.style.display = 'flex';
+                btnGenerate.innerText = "ATUALIZAR DADOS\nPARA VER GRÁFICO";
+                chartZone.classList.remove('active');
+                radarCanvas.style.display = 'none';
+                btnPDF.style.display = 'none';
+            }
+
+            function renderInputs() {
+                const container = document.getElementById('inputs-container');
+                container.innerHTML = '';
+                skills.forEach((skill, index) => {
+                    const group = document.createElement('div');
+                    group.className = 'control-group';
+                    group.innerHTML = `
+                        <label>${skill.name}</label>
+                        <div class="slider-wrapper">
+                            <input type="range" class="range-atual" data-idx="${index}" min="0" max="10" value="${skill.atual}">
+                            <span class="val-badge-atual" id="val-atual-${index}">${skill.atual}</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="range-desejado" data-idx="${index}" min="0" max="10" value="${skill.desejado}">
+                            <span class="val-badge-desejado" id="val-dese-${index}">${skill.desejado}</span>
+                        </div>
+                    `;
+                    container.appendChild(group);
+                });
+
+                // Detectar mudanças nos Sliders
+                document.querySelectorAll('input[type="range"]').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const idx = e.target.dataset.idx;
+                        const type = e.target.classList.contains('range-atual') ? 'atual' : 'desejado';
+                        const badgeId = type === 'atual' ? `val-atual-${idx}` : `val-dese-${idx}`;
+                        
+                        document.getElementById(badgeId).innerText = e.target.value;
+                        skills[idx][type] = parseInt(e.target.value);
+                        
+                        // ESSENCIAL: Se o usuário mexer, o gráfico some para forçar novo salvamento
+                        resetGrafico();
+                    });
+                });
+            }
+
+            // Ação de Gerar Gráfico e Enviar para Planilha
+            btnGenerate.onclick = async function() {
+                btnGenerate.innerText = "SALVANDO...";
+                
+                // Envia para o Sheets
+                await salvarNoGoogleSheets(document.getElementById('display-name').innerText, skills);
+                
+                // Troca visualização
+                btnGenerate.style.display = 'none';
+                chartZone.classList.add('active');
+                radarCanvas.style.display = 'block';
+                btnPDF.style.display = 'block';
+                
+                initChart();
+            };
+
+            async function salvarNoGoogleSheets(nome, skillsData) {
+                const url = "https://script.google.com/macros/s/AKfycbzbJByfieH0I3XVvZJICs9kyOiXLLr9pSSng5bHMAYESA0erT4LLsg_uNXddwXb1oAGCQ/exec"; 
+                try {
+                    await fetch(url, {
+                        method: "POST",
+                        mode: "no-cors",
+                        headers: { "Content-Type": "text/plain" },
+                        body: JSON.stringify({ nome: nome, skills: skillsData })
+                    });
+                    console.log("Dados sincronizados com a planilha.");
+                } catch (e) { console.error("Erro na sincronização", e); }
+            }
+
+            function initChart() {
+                const ctx = radarCanvas.getContext('2d');
+                if (radarChart) radarChart.destroy(); // Limpa gráfico anterior
+                radarChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: skills.map(s => s.name),
+                        datasets: [
+                            {
+                                label: 'Nível Atual',
+                                data: skills.map(s => s.atual),
+                                backgroundColor: 'rgba(0, 112, 177, 0.25)',
+                                borderColor: '#0070b1',
+                                borderWidth: 3,
+                                pointRadius: 5
+                            },
+                            {
+                                label: 'Nível Desejado',
+                                data: skills.map(s => s.desejado),
+                                backgroundColor: 'rgba(106, 109, 112, 0.15)',
+                                borderColor: '#6a6d70',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 5
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { r: { min: 0, max: 10, ticks: { display: false }, pointLabels: { font: { size: 13, weight: 'bold' } } } },
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            }
+
+            // Exportação PDF
+            btnPDF.onclick = async function() {
+                const element = document.getElementById('capture-area');
+                element.classList.add('capturing');
+                const canvasImg = await html2canvas(element, { scale: 2 });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('l', 'mm', 'a4');
+                pdf.addImage(canvasImg.toDataURL('image/png'), 'PNG', 10, 10, 277, (277 * canvasImg.height / canvasImg.width));
+                pdf.save(`Relatorio_HCM_${document.getElementById('display-name').innerText}.pdf`);
+                element.classList.remove('capturing');
+            };
+        });
+    </script>
+</body>
+</html>
